@@ -1,0 +1,92 @@
+mimir:
+  structuredConfig:
+    # 1. Mengaktifkan Multitenancy (Temuan Claude)
+    multitenancy_enabled: true
+    ingest_storage:
+      enabled: false
+    ingester:
+      push_grpc_method_enabled: true
+      ring:
+        replication_factor: 1
+        zone_awareness_enabled: false
+    store_gateway:
+      sharding_ring:
+        replication_factor: 1
+        zone_awareness_enabled: false
+    blocks_storage:
+      backend: azure
+      azure:
+        account_name: lgtmstoragejarvis
+        account_key: "<AZURE_STORAGE_ACCOUNT_KEY>"
+        container_name: mimir-blocks
+    ruler_storage:
+      backend: azure
+      azure:
+        account_name: lgtmstoragejarvis
+        account_key: "<AZURE_STORAGE_ACCOUNT_KEY>"
+        container_name: mimir-ruler
+    alertmanager_storage:
+      backend: azure
+      azure:
+        account_name: lgtmstoragejarvis
+        account_key: "<AZURE_STORAGE_ACCOUNT_KEY>"
+        container_name: mimir-alertmanager
+
+# 2. Matikan Komponen Berat & Rollout Operator
+minio:
+  enabled: false
+kafka:
+  enabled: false
+rollout_operator:
+  enabled: false
+
+# 3. Matikan PodDisruptionBudget (PDB) agar Pod tidak nyangkut lagi (Temuan Claude)
+ingester:
+  replicas: 1
+  zoneAwareReplication:
+    enabled: false
+  persistentVolume:
+    enabled: false
+  podDisruptionBudget:
+    enabled: false
+
+store_gateway:
+  replicas: 1
+  zoneAwareReplication:
+    enabled: false
+  persistentVolume:
+    enabled: false
+  podDisruptionBudget:
+    enabled: false
+
+compactor:
+  replicas: 1
+  persistentVolume:
+    enabled: false
+  podDisruptionBudget:
+    enabled: false
+
+distributor:
+  replicas: 1
+  podDisruptionBudget:
+    enabled: false
+
+querier:
+  replicas: 1
+  podDisruptionBudget:
+    enabled: false
+
+query_frontend:
+  replicas: 1
+  podDisruptionBudget:
+    enabled: false
+
+ruler:
+  replicas: 1
+  podDisruptionBudget:
+    enabled: false
+
+alertmanager:
+  replicas: 1
+  podDisruptionBudget:
+    enabled: false
