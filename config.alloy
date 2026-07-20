@@ -5,14 +5,13 @@ metadata:
   namespace: monitoring
 data:
   config.alloy: |
-    // --- 1. KUBERNETES LOGS ---
     discovery.kubernetes "pods" {
       role = "pod"
     }
- 
+
     discovery.relabel "pod_logs" {
       targets = discovery.kubernetes.pods.targets
- 
+
       rule {
         source_labels = ["__meta_kubernetes_namespace"]
         target_label  = "namespace"
@@ -43,16 +42,16 @@ data:
         target_label  = "tmp_container_runtime"
       }
     }
- 
+
     local.file_match "pod_logs" {
       path_targets = discovery.relabel.pod_logs.output
     }
- 
+
     loki.source.file "pod_logs" {
       targets    = local.file_match.pod_logs.targets
       forward_to = [loki.process.pod_logs.receiver]
     }
- 
+
     loki.process "pod_logs" {
       stage.match {
         selector = "{tmp_container_runtime=\"containerd\"}"
@@ -75,17 +74,15 @@ data:
       }
       forward_to = [loki.write.loki.receiver]
     }
- 
-    // --- PINTU MASUK GUDANG LOKI ---
+
     loki.write "loki" {
       endpoint {
         url = "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
       }
     }
- 
-    // --- 2. MIMIR (METRICS) PONDASI ---
+
     prometheus.exporter.unix "node" {}
- 
+
     discovery.relabel "node" {
       targets = prometheus.exporter.unix.node.targets
       rule {
@@ -93,12 +90,12 @@ data:
         replacement  = "node-exporter"
       }
     }
- 
+
     prometheus.scrape "node" {
       targets    = discovery.relabel.node.output
       forward_to = [prometheus.remote_write.mimir_nodes.receiver]
     }
- 
+
     prometheus.remote_write "mimir_nodes" {
       endpoint {
         url = "http://mimir-gateway.monitoring.svc.cluster.local/api/v1/push"
@@ -107,11 +104,11 @@ data:
         }
       }
     }
- 
+
     discovery.kubernetes "kubelet_nodes" {
       role = "node"
     }
- 
+
     discovery.relabel "kubelet_cadvisor" {
       targets = discovery.kubernetes.kubelet_nodes.targets
       rule {
@@ -124,7 +121,7 @@ data:
         replacement   = "/metrics/cadvisor"
       }
     }
- 
+
     prometheus.scrape "kubelet_cadvisor" {
       targets           = discovery.relabel.kubelet_cadvisor.output
       scheme            = "https"
@@ -134,7 +131,7 @@ data:
       }
       forward_to = [prometheus.remote_write.mimir_pods.receiver]
     }
- 
+
     discovery.relabel "pod_metrics" {
       targets = discovery.kubernetes.pods.targets
       rule {
@@ -162,12 +159,12 @@ data:
         target_label  = "pod"
       }
     }
- 
+
     prometheus.scrape "pod_metrics" {
       targets    = discovery.relabel.pod_metrics.output
       forward_to = [prometheus.remote_write.mimir_pods.receiver]
     }
- 
+
     prometheus.remote_write "mimir_pods" {
       endpoint {
         url = "http://mimir-gateway.monitoring.svc.cluster.local/api/v1/push"
@@ -176,8 +173,7 @@ data:
         }
       }
     }
- 
-    // --- 3. OPEN TELEMETRY (BACKEND LOGS, TRACES, METRICS) ---
+
     otelcol.receiver.otlp "default" {
       grpc {
         endpoint = "0.0.0.0:4317"
@@ -188,16 +184,14 @@ data:
       output {
         traces  = [otelcol.processor.k8sattributes.default.input]
         metrics = [otelcol.processor.batch.metrics.input]
-        // Menambahkan kembali jalur LOGS milik Anda!
-        logs    = [otelcol.exporter.loki.default.input] 
+        logs    = [otelcol.exporter.loki.default.input]
       }
     }
 
-    // Exporter Log yang sebelumnya hilang di template mentor
     otelcol.exporter.loki "default" {
       forward_to = [loki.write.loki.receiver]
     }
- 
+
     otelcol.processor.k8sattributes "default" {
       extract {
         metadata = [
@@ -210,32 +204,40 @@ data:
         traces = [otelcol.processor.batch.traces.input]
       }
     }
- 
+
     otelcol.processor.batch "traces" {
       output {
         traces = [otelcol.exporter.otlphttp.tempo.input]
       }
     }
- 
+
+    otelcol.auth.headers "tempo_tenant" {
+      header {
+      key   = "X-Scope-OrgID"
+      value = "traces"
+      }
+    }
+
     otelcol.exporter.otlphttp "tempo" {
       client {
         endpoint = "http://tempo-distributor.monitoring.svc.cluster.local:4318"
         tls {
           insecure = true
         }
+      auth = otelcol.auth.headers.tempo_tenant.handler
       }
     }
- 
+
     otelcol.processor.batch "metrics" {
       output {
         metrics = [otelcol.exporter.prometheus.vm_metrics.input]
       }
     }
- 
+
     otelcol.exporter.prometheus "vm_metrics" {
       forward_to = [prometheus.remote_write.mimir_vm.receiver]
     }
- 
+
     prometheus.remote_write "mimir_vm" {
       endpoint {
         url = "http://mimir-gateway.monitoring.svc.cluster.local/api/v1/push"
@@ -244,8 +246,8 @@ data:
         }
       }
     }
- 
-    // --- 4. PYROSCOPE (PROFILING) ---
+
+
     discovery.kubernetes "local_pods" {
       selectors {
         field = "spec.nodeName=" + env("NODE_NAME")
@@ -253,43 +255,44 @@ data:
       }
       role = "pod"
     }
- 
+
     discovery.relabel "pprof_pods" {
       targets = discovery.kubernetes.local_pods.targets
-      rule {
-        source_labels = ["__meta_kubernetes_namespace"]
-        regex         = "ecommerce"
-        action        = "keep"
-      }
-      rule {
-        source_labels = ["__meta_kubernetes_pod_container_name"]
-        regex         = "frontend"
-        action        = "drop"
-      }
-      rule {
-        source_labels = ["__address__"]
-        regex         = "(.+):\\d+"
-        replacement   = "$1:6060"
-        target_label  = "__address__"
-      }
-      rule {
-        source_labels = ["__meta_kubernetes_namespace"]
-        target_label  = "namespace"
-      }
-      rule {
-        source_labels = ["__meta_kubernetes_pod_name"]
-        target_label  = "pod"
-      }
-      rule {
-        source_labels = ["__meta_kubernetes_pod_container_name"]
-        target_label  = "service_name"
-      }
+
+     rule {
+       source_labels = ["__meta_kubernetes_pod_annotation_profiles_grafana_com_scrape"]
+       regex         = "true"
+       action        = "keep"
+     }
+     rule {
+       source_labels = ["__meta_kubernetes_pod_container_name"]
+       regex         = "frontend"
+       action        = "drop"
+     }
+     rule {
+       source_labels = ["__address__", "__meta_kubernetes_pod_annotation_profiles_grafana_com_port"]
+       regex         = "([^:]+)(?::\\d+)?;(\\d+)"
+       replacement   = "$1:$2"
+       target_label  = "__address__"
+     }
+     rule {
+       source_labels = ["__meta_kubernetes_namespace"]
+       target_label  = "namespace"
+     }
+     rule {
+       source_labels = ["__meta_kubernetes_pod_name"]
+       target_label  = "pod"
+     }
+     rule {
+       source_labels = ["__meta_kubernetes_pod_container_name"]
+       target_label  = "service_name"
+     }
     }
- 
+
     pyroscope.scrape "apps" {
       targets    = discovery.relabel.pprof_pods.output
       forward_to = [pyroscope.write.pyroscope.receiver]
- 
+
       profiling_config {
         profile.process_cpu {
           enabled = true
@@ -308,14 +311,13 @@ data:
         }
       }
     }
- 
+
     pyroscope.write "pyroscope" {
       endpoint {
         url = "http://pyroscope-distributor.monitoring.svc.cluster.local:4040"
       }
     }
- 
-    // --- 5. FARO (FRONTEND LOGS & TRACES) ---
+
     faro.receiver "frontend" {
       server {
         listen_address = "0.0.0.0"
@@ -327,7 +329,7 @@ data:
         traces = [otelcol.processor.batch.traces.input]
       }
     }
- 
+
     loki.process "faro" {
       stage.static_labels {
         values = {
