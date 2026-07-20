@@ -12,7 +12,7 @@ pyroscope:
       backend: azure
       azure:
         account_name: lgtmstoragejarvis
-        account_key: "<AZURE_STORAGE_ACCOUNT_KEY>"
+        account_key: "<key>"
         container_name: pyroscope-data
         endpoint_suffix: blob.core.windows.net
 
