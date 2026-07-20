@@ -1,15 +1,12 @@
 fullnameOverride: "tempo"
 multitenancyEnabled: true
 
-tempo:
-  auth_enabled: false
-
 storage:
   trace:
     backend: azure
     azure:
       storage_account_name: lgtmstoragejarvis
-      account_key: "<AZURE_STORAGE_ACCOUNT_KEY>"
+      storage_account_key: "<key>"
       container_name: tempo-traces
 
 traces:
@@ -58,3 +55,13 @@ queryFrontend:
   replicas: 1
   podDisruptionBudget:
     enabled: false
+
+metricsGenerator:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
