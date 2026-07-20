@@ -1,9 +1,8 @@
 mimir:
   structuredConfig:
-    # 1. Mengaktifkan Multitenancy (Temuan Claude)
     multitenancy_enabled: true
     ingest_storage:
-      enabled: false
+      enabled: true
     ingester:
       push_grpc_method_enabled: true
       ring:
@@ -17,30 +16,28 @@ mimir:
       backend: azure
       azure:
         account_name: lgtmstoragejarvis
-        account_key: "<AZURE_STORAGE_ACCOUNT_KEY>"
+        account_key: "<key>"
         container_name: mimir-blocks
     ruler_storage:
       backend: azure
       azure:
         account_name: lgtmstoragejarvis
-        account_key: "<AZURE_STORAGE_ACCOUNT_KEY>"
+        account_key: "<key>"
         container_name: mimir-ruler
     alertmanager_storage:
       backend: azure
       azure:
         account_name: lgtmstoragejarvis
-        account_key: "<AZURE_STORAGE_ACCOUNT_KEY>"
+        account_key: "<key>"
         container_name: mimir-alertmanager
 
-# 2. Matikan Komponen Berat & Rollout Operator
 minio:
   enabled: false
 kafka:
-  enabled: false
+  enabled: true
 rollout_operator:
   enabled: false
 
-# 3. Matikan PodDisruptionBudget (PDB) agar Pod tidak nyangkut lagi (Temuan Claude)
 ingester:
   replicas: 1
   zoneAwareReplication:
@@ -86,6 +83,10 @@ ruler:
   podDisruptionBudget:
     enabled: false
 
+alertmanager:
+  replicas: 1
+  podDisruptionBudget:
+    enabled: false
 alertmanager:
   replicas: 1
   podDisruptionBudget:
