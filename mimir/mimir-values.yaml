@@ -87,7 +87,3 @@ alertmanager:
   replicas: 1
   podDisruptionBudget:
     enabled: false
-alertmanager:
-  replicas: 1
-  podDisruptionBudget:
-    enabled: false
