@@ -116,7 +116,7 @@ loki:
         index:
           prefix: index_
           period: 24h
-
+  
   storage:
     type: azure
     bucketNames:
